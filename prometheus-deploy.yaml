@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-deployment
+  namespace: <set>
   labels:
     app: prometheus-server
 spec:
@@ -23,7 +24,7 @@ spec:
             - "--storage.tsdb.path=/prometheus/"
           env:
             - name: NO_PROXY
-              value: .svc,.local,<ip node1>,<ip node2>,<dst>
+              value: .svc,.local,10.40.210.50,10.40.210.51
           ports:
             - containerPort: 9090
           volumeMounts:
