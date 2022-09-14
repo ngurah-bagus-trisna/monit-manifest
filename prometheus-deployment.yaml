@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: prometheus-<set>
+  name: prometheus-nodelocaldns
 rules:
 - apiGroups: [""]
   resources:
@@ -26,24 +26,24 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: prometheus-<set>
+  name: prometheus-nodelocaldns
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: prometheus-<set>
+  name: prometheus-nodelocaldns
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: <set>
+  namespace: nodelocaldns
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prometheus-server-conf-<set>
+  name: prometheus-server-conf-nodelocaldns
   labels:
-    name: prometheus-server-conf-<set>
-  namespace: <set>
+    name: prometheus-server-conf-nodelocaldns
+  namespace: nodelocaldns
 data:
   prometheus.yml: |-
     global:
@@ -69,7 +69,7 @@ data:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
 
-        cat k delerelabel_configs:
+        relabel_configs:
         - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
           action: keep
           regex: default;kubernetes;https
@@ -124,7 +124,7 @@ data:
       
       - job_name: 'kube-state-metrics'
         static_configs:
-          - targets: ['kube-state-metrics.kube-system.svc.cluster.local:8080']
+          - targets: ['kube-state-metrics-nodelocaldns.nodelocaldns.svc.cluster.local:8080']
 
       - job_name: 'kubernetes-cadvisor'
 
@@ -136,6 +136,8 @@ data:
 
         kubernetes_sd_configs:
         - role: node
+
+
 
         relabel_configs:
         - action: labelmap
@@ -183,19 +185,19 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus-deployment-<set>
-  namespace: <set>
+  name: prometheus-deployment-nodelocaldns
+  namespace: nodelocaldns
   labels:
-    app: prometheus-server-<set>
+    app: prometheus-server-nodelocaldns
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: prometheus-server-<set>
+      app: prometheus-server-nodelocaldns
   template:
     metadata:
       labels:
-        app: prometheus-server-<set>
+        app: prometheus-server-nodelocaldns
     spec:
       containers:
         - name: prometheus
@@ -206,7 +208,7 @@ spec:
             - "--storage.tsdb.path=/prometheus/"
           env:
             - name: NO_PROXY
-              value: .svc,.local,<ip node1>,<ip node2>,<dst>
+              value: .svc,.local,10.40.210.50,10.40.210.51
           ports:
             - containerPort: 9090
           volumeMounts:
@@ -234,7 +236,7 @@ spec:
         - name: prometheus-config-volume
           configMap:
             defaultMode: 420
-            name: prometheus-server-conf
+            name: prometheus-server-conf-nodelocaldns
   
         - name: prometheus-storage-volume
           emptyDir: {}
@@ -245,16 +247,17 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-service-<set>
-  namespace: <set>
+  name: prometheus-service-nodelocaldns
+  namespace: nodelocaldns
   annotations:
       prometheus.io/scrape: 'true'
       prometheus.io/port:   '9090'
 spec:
   selector: 
-    app: prometheus-server-<set>
+    app: prometheus-server-nodelocaldns
   type: NodePort  
   ports:
     - port: 8080
       targetPort: 9090 
-      nodePort: 30000
+      nodePort: 30002
+
