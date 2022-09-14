@@ -1,17 +1,54 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - configmaps
+  - endpoints
+  - pods
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
 
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: <set>
+
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-server-conf
   labels:
     name: prometheus-server-conf
+  namespace: <set>
 data:
-
   prometheus.yml: |-
     global:
       scrape_interval: 5s
       evaluation_interval: 5s
-
 
     scrape_configs:
       - job_name: 'node-exporter'
@@ -140,3 +177,82 @@ data:
         - source_labels: [__meta_kubernetes_service_name]
           action: replace
           target_label: kubernetes_name
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-deployment
+  namespace: <set>
+  labels:
+    app: prometheus-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-server
+  template:
+    metadata:
+      labels:
+        app: prometheus-server
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus
+          args:
+            - "--storage.tsdb.retention.time=12h"
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus/"
+          env:
+            - name: NO_PROXY
+              value: .svc,.local,<ip node1>,<ip node2>,<dst>
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config-volume
+              mountPath: /etc/prometheus/
+            - name: prometheus-storage-volume
+              mountPath: /prometheus/
+        - name: configmap-reload
+          image: "jimmidyson/configmap-reload:v0.2.2"
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+          env:
+          - name: NO_PROXY
+            value: localhost,127.0.0.1
+          args:
+            - --volume-dir=/etc/prometheus/
+            - --webhook-url=http://127.0.0.1:9090/-/reload
+          volumeMounts:
+            - mountPath: /etc/prometheus/
+              name: prometheus-config-volume
+              readOnly: true
+      volumes:
+        - name: prometheus-config-volume
+          configMap:
+            defaultMode: 420
+            name: prometheus-server-conf
+  
+        - name: prometheus-storage-volume
+          emptyDir: {}
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: <set>
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/port:   '9090'
+spec:
+  selector: 
+    app: prometheus-server
+  type: NodePort  
+  ports:
+    - port: 8080
+      targetPort: 9090 
+      nodePort: 30000
