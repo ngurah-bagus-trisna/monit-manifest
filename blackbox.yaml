@@ -1,55 +1,33 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: blackbox-roles
   namespace: <set>
-rules:
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["list"]
-
----
-
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: blackbox-rolebinding
-  namespace: ops-monit
-subjects:
-  - kind: ServiceAccount
-    name: blackbox
-    namespace: <set>
-roleRef:
-  kind: Role
-  name: blackbox-roles
-  apiGroup: rbac.authorization.k8s.io
-
----
-
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: prometheus-blackbox-exporter
-  namespace: <set>
+  name: prometheus-blackbox-exporter-<set>
   labels:
-    app: prometheus-blackbox-exporter
-spec:
-  selector:
-    matchLabels:
-      app: prometheus-blackbox-exporter
-  template:
-    metadata:
-      labels:
-        app: prometheus-blackbox-exporter
-    spec:
-      serviceAccountName: blackbox
-      hostAliases:
-        - hostnames:
-          - k8s-master
-          ip: 10.40.210.100
-      restartPolicy: Always
-      containers:
-        - name: blackbox-exporter
-          image: "prom/blackbox-exporter:v0.15.1"
-          imagePullPolicy: IfNotPresent
-          securityContext:
+    app: prometheus-blackbox-exporter-<set>
+data:
+  blackbox.yaml: |
+    modules:
+      tcp_connect:
+        prober: tcp
+        timeout: 5s
+      http_2xx:
+        prober: http
+        timeout: 5s
+        http:
+          method: GET
+          no_follow_redirects: false
+          preferred_ip_protocol: ip4
+          valid_http_versions:
+          - HTTP/1.1
+          - HTTP/2
+          valid_status_codes:
+          - 200
+          - 401
+          - 403
+          tls_config:
+            insecure_skip_verify: true
+          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+---
+

@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: prometheus
+  name: prometheus-<set>
 rules:
 - apiGroups: [""]
   resources:
@@ -26,11 +26,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: prometheus
+  name: prometheus-<set>
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: prometheus
+  name: prometheus-<set>
 subjects:
 - kind: ServiceAccount
   name: default
@@ -40,9 +40,9 @@ subjects:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prometheus-server-conf
+  name: prometheus-server-conf-<set>
   labels:
-    name: prometheus-server-conf
+    name: prometheus-server-conf-<set>
   namespace: <set>
 data:
   prometheus.yml: |-
@@ -69,7 +69,7 @@ data:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
 
-        relabel_configs:
+        cat k delerelabel_configs:
         - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
           action: keep
           regex: default;kubernetes;https
@@ -186,16 +186,16 @@ metadata:
   name: prometheus-deployment-<set>
   namespace: <set>
   labels:
-    app: prometheus-server
+    app: prometheus-server-<set>
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: prometheus-server
+      app: prometheus-server-<set>
   template:
     metadata:
       labels:
-        app: prometheus-server
+        app: prometheus-server-<set>
     spec:
       containers:
         - name: prometheus
@@ -240,6 +240,8 @@ spec:
           emptyDir: {}
 
 
+---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -250,7 +252,7 @@ metadata:
       prometheus.io/port:   '9090'
 spec:
   selector: 
-    app: prometheus-server
+    app: prometheus-server-<set>
   type: NodePort  
   ports:
     - port: 8080
