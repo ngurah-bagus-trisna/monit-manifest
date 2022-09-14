@@ -183,7 +183,7 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus-deployment
+  name: prometheus-deployment-<set>
   namespace: <set>
   labels:
     app: prometheus-server
@@ -243,7 +243,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-service
+  name: prometheus-service-<set>
   namespace: <set>
   annotations:
       prometheus.io/scrape: 'true'
